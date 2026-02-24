@@ -14,4 +14,8 @@ Yo, so I finally got fed up with Discord’s internal classes breaking every sin
 1.  **Throw** the `showUserIDs` folder into your `src/userplugins/` directory.
 
 # Development Note:
-> I built this plugin using an AI pair programmer. While the AI handled the TypeScript syntax, I drove the architecture, made the UI/UX decisions, and did extensive QA testing and debugging to ensure the DOM-observation logic successfully bypasses Discord's recent Webpack obfuscation. If you are an experienced developer and see room for optimization, Pull Requests are absolutely welcome!
+Full transparency: I am definitely NOT a TypeScript wizard lmao. I basically treated the AI like my personal slave to handle the syntax. 
+
+I really only built this for my own personal gain and because I thought it'd be fun to see if I could beat Discord's obfuscation, but I figured I'd share it since it actually works. I was the director, the AI was the slave. I came up with the logic, wrestled with the CSS until it didn't look like trash, and spent way too long squashing that double-click bug. 
+
+It works perfectly on my machine, but if any of you senior devs wanna peek under the hood and tell me why my code is messy, please hit me with a Pull Request. I’m just out here tryna learn
