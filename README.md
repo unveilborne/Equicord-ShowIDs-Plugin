@@ -1,6 +1,6 @@
 # Equicord-ShowIDs-Plugin
 ShowIDs for Equicord 🏷️
-*Created by ryuzaki*
+*Created by Ryuzaki*
 
 A bulletproof, custom Equicord plugin that visually displays User IDs directly next to usernames in the chat window. 
 
