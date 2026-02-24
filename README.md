@@ -16,3 +16,6 @@ A bulletproof, custom Equicord plugin that visually displays User IDs directly n
 3. Run `pnpm build`
 4. Run `pnpm inject`
 5. Completely restart Discord!
+
+# Development Note:
+> I built this plugin using an AI pair programmer. While the AI handled the TypeScript syntax, I drove the architecture, made the UI/UX decisions, and did extensive QA testing and debugging to ensure the DOM-observation logic successfully bypasses Discord's recent Webpack obfuscation. If you are an experienced developer and see room for optimization, Pull Requests are absolutely welcome!
