@@ -1,41 +1,75 @@
 import definePlugin, { OptionType } from "@utils/types";
+import { definePluginSettings } from "@api/Settings";
+
+const settings = definePluginSettings({
+    badgeColor: {
+        type: OptionType.SELECT,
+        description: "Choose the background color for the ID badge.",
+        options: [
+            { label: "Transparent (Default)", value: "transparent", default: true },
+            { label: "Black", value: "#000000" },
+            { label: "Discord Blue", value: "#5865F2" },
+            { label: "Green", value: "#23A559" },
+            { label: "Red", value: "#DA373C" },
+            { label: "White", value: "#FFFFFF" },
+            { label: "Yellow", value: "#FEE75C" }
+        ]
+    },
+    ignoreBots: {
+        type: OptionType.BOOLEAN,
+        default: true, 
+        description: "Hide the ID badge for Bot and App accounts."
+    }
+});
 
 let chatObserver: MutationObserver | null = null;
 let updateTimeout: number | null = null;
 
 export default definePlugin({
     name: "ShowIDs",
-    description: "Visually displays User IDs next to usernames in chat. Customizable colors. Double-click to copy.",
-    authors: [{ name: "ryuzaki", id: 0n }],
+    description: "Displays User IDs next to chat usernames. Features a color drop-down, smart text contrast, and double-click to copy.",
+    
+    // REPLACE '0' WITH YOUR ACTUAL DISCORD USER ID (Keep the 'n' at the end!)
+    authors: [{ name: "ryuzaki", id: 0n }], 
 
-    settings: {
-        badgeColor: {
-            type: OptionType.COLOR,
-            default: "#5865F2", 
-            description: "Choose the background color for the ID badge."
-        }
-    },
-
-    getSetting(key: string, defaultValue: any): any {
-        // @ts-ignore
-        const val = this.settings?.[key];
-        return val !== undefined ? val : defaultValue;
-    },
+    settings, 
 
     injectBadges() {
-        let rawColor = this.getSetting("badgeColor", "#5865F2");
-        let bgColor = typeof rawColor === "number" ? `#${rawColor.toString(16).padStart(6, '0')}` : rawColor;
+        let bgColor = settings.store.badgeColor;
+        let ignoreBots = settings.store.ignoreBots ?? true;
         
-        if (!bgColor) bgColor = "#5865F2";
+        if (!bgColor) bgColor = "transparent"; 
+
+        // Smart Text Color Logic
+        let textColor = '#FFFFFF';
+        if (bgColor === "#FFFFFF" || bgColor === "#FEE75C") {
+            textColor = "#000000"; // Dark text for light backgrounds
+        } else if (bgColor === "transparent") {
+            textColor = "#FFFFFF"; // Crisp white text for transparent backgrounds
+        }
+
+        document.querySelectorAll('.custom-id-badge').forEach(badge => {
+            const el = badge as HTMLElement;
+            if (el.getAttribute('data-original-bg') !== bgColor && el.innerText !== 'COPIED!') {
+                el.style.backgroundColor = bgColor;
+                el.style.color = textColor;
+                
+                el.setAttribute('data-original-bg', bgColor);
+                el.setAttribute('data-original-text', textColor);
+            }
+        });
 
         document.querySelectorAll('h3').forEach(header => {
             const usernameSpan = header.querySelector('[id^="message-username-"]');
             if (!usernameSpan) return;
 
-            if (header.querySelector('.custom-id-badge')) return;
-
             const messageContainer = header.closest('li') || header.closest('[role="article"]') || header.parentElement?.parentElement;
             if (!messageContainer) return;
+
+            const isBot = messageContainer.querySelector('[class*="botTag"], [class*="appTag"], [class*="botText"], [aria-label*="Bot"], [aria-label*="App"]');
+            if (ignoreBots && isBot) return;
+
+            if (header.querySelector('.custom-id-badge')) return;
 
             const avatar = messageContainer.querySelector('img[src*="/avatars/"], img[src*="/users/"]') as HTMLImageElement;
             
@@ -47,9 +81,13 @@ export default definePlugin({
                     const badge = document.createElement('span');
                     badge.className = 'custom-id-badge';
                     
+                    badge.setAttribute('data-original-bg', bgColor);
+                    badge.setAttribute('data-original-text', textColor);
+                    
                     badge.innerText = `ID: ${userId}`;
                     badge.style.backgroundColor = bgColor;
-                    badge.style.color = '#FFFFFF';
+                    badge.style.color = textColor;
+                    
                     badge.style.padding = '2px 6px';
                     badge.style.borderRadius = '4px';
                     badge.style.marginLeft = '6px';
@@ -62,7 +100,6 @@ export default definePlugin({
                     badge.style.cursor = 'pointer';
                     badge.style.userSelect = 'none';
 
-                    // --- NEW FIX: Swallow all mouse events so Discord ignores them ---
                     const preventDiscordEvents = (e: Event) => {
                         e.stopPropagation();
                         e.stopImmediatePropagation();
@@ -71,28 +108,27 @@ export default definePlugin({
                     badge.addEventListener('mousedown', preventDiscordEvents);
                     badge.addEventListener('mouseup', preventDiscordEvents);
                     badge.addEventListener('click', preventDiscordEvents);
-                    // -----------------------------------------------------------------
 
                     let isCopied = false;
 
                     badge.addEventListener('dblclick', (e) => {
                         e.stopPropagation();
-                        e.stopImmediatePropagation(); // Ensure double-click is also fully swallowed
+                        e.stopImmediatePropagation();
                         
                         if (isCopied) return;
 
                         navigator.clipboard.writeText(userId).then(() => {
                             isCopied = true;
                             
-                            const previousColor = badge.style.backgroundColor;
-                            
                             badge.innerText = 'COPIED!';
                             badge.style.backgroundColor = '#23a559'; 
+                            badge.style.color = '#FFFFFF'; 
                             
                             setTimeout(() => {
                                 if (badge) {
                                     badge.innerText = `ID: ${userId}`;
-                                    badge.style.backgroundColor = previousColor; 
+                                    badge.style.backgroundColor = badge.getAttribute('data-original-bg') || bgColor;
+                                    badge.style.color = badge.getAttribute('data-original-text') || textColor;
                                     isCopied = false;
                                 }
                             }, 1000);
@@ -110,10 +146,7 @@ export default definePlugin({
     },
 
     start() {
-        console.log("[ShowIDs] Starting plugin by ryuzaki...");
-
         const boundInject = this.injectBadges.bind(this);
-
         setTimeout(boundInject, 1500);
 
         chatObserver = new MutationObserver(() => {
@@ -132,6 +165,5 @@ export default definePlugin({
             chatObserver = null;
         }
         document.querySelectorAll('.custom-id-badge').forEach(badge => badge.remove());
-        console.log("[ShowIDs] Plugin stopped.");
     }
 });
