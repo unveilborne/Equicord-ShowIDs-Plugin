@@ -38,11 +38,34 @@ const settings = definePluginSettings({
 let chatObserver: MutationObserver | null = null;
 let updateTimeout: number | null = null;
 
+// --- THE NEW FIX: Reaches into Discord's React memory to find the true ID ---
+function getUserIdFromNode(node: HTMLElement): string | null {
+    // Find the secret React Fiber key attached to the DOM element
+    const reactKey = Object.keys(node).find(k => k.startsWith("__reactFiber$"));
+    if (!reactKey) return null;
+    
+    let current = (node as any)[reactKey];
+    
+    // Climb up the React memory tree until we find the active message data
+    for (let i = 0; i < 20; i++) {
+        if (!current) break;
+        
+        const msg = current.memoizedProps?.message;
+        if (msg && msg.author && msg.author.id) {
+            return msg.author.id; // Boom, guaranteed 100% accurate ID
+        }
+        
+        current = current.return; // Move up one level
+    }
+    return null;
+}
+// --------------------------------------------------------------------------
+
 export default definePlugin({
     name: "ShowIDs",
     description: "Displays User IDs next to chat usernames. Features color drop-downs, smart text contrast, and double-click to copy.",
     
-    // REPLACE '0' WITH YOUR ACTUAL DISCORD USER ID (Keep the 'n' at the end!)
+    // REPLACE '0' WITH YOUR ACTUAL DISCORD USER ID
     authors: [{ name: "ryuzaki", id: 0n }], 
 
     settings, 
@@ -53,7 +76,6 @@ export default definePlugin({
         
         if (!bgColor) bgColor = "transparent"; 
 
-        // Smart Text Color Logic for the Resting Badge
         let textColor = '#FFFFFF';
         if (bgColor === "#FFFFFF" || bgColor === "#FEE75C") {
             textColor = "#000000"; 
@@ -66,7 +88,6 @@ export default definePlugin({
             if (el.getAttribute('data-original-bg') !== bgColor && el.innerText !== 'COPIED!') {
                 el.style.backgroundColor = bgColor;
                 el.style.color = textColor;
-                
                 el.setAttribute('data-original-bg', bgColor);
                 el.setAttribute('data-original-text', textColor);
             }
@@ -84,86 +105,80 @@ export default definePlugin({
 
             if (header.querySelector('.custom-id-badge')) return;
 
-            const avatar = messageContainer.querySelector('img[src*="/avatars/"], img[src*="/users/"]') as HTMLImageElement;
+            // --- USE THE NEW MEMORY READER INSTEAD OF HTML SCRAPING ---
+            const userId = getUserIdFromNode(header as HTMLElement);
             
-            if (avatar && avatar.src) {
-                const match = avatar.src.match(/\/(?:avatars|users)\/(\d+)/);
-                if (match && match[1]) {
-                    const userId = match[1];
+            if (userId) {
+                const badge = document.createElement('span');
+                badge.className = 'custom-id-badge';
+                
+                badge.setAttribute('data-original-bg', bgColor);
+                badge.setAttribute('data-original-text', textColor);
+                
+                badge.innerText = `ID: ${userId}`;
+                badge.style.backgroundColor = bgColor;
+                badge.style.color = textColor;
+                
+                badge.style.padding = '2px 6px';
+                badge.style.borderRadius = '4px';
+                badge.style.marginLeft = '6px';
+                badge.style.fontSize = '10px';
+                badge.style.fontWeight = '700';
+                badge.style.display = 'inline-flex';
+                badge.style.alignItems = 'center';
+                badge.style.verticalAlign = 'middle';
+                badge.style.textTransform = 'uppercase';
+                badge.style.cursor = 'pointer';
+                badge.style.userSelect = 'none';
 
-                    const badge = document.createElement('span');
-                    badge.className = 'custom-id-badge';
+                const preventDiscordEvents = (e: Event) => {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                };
+
+                badge.addEventListener('mousedown', preventDiscordEvents);
+                badge.addEventListener('mouseup', preventDiscordEvents);
+                badge.addEventListener('click', preventDiscordEvents);
+
+                let isCopied = false;
+
+                badge.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
                     
-                    badge.setAttribute('data-original-bg', bgColor);
-                    badge.setAttribute('data-original-text', textColor);
-                    
-                    badge.innerText = `ID: ${userId}`;
-                    badge.style.backgroundColor = bgColor;
-                    badge.style.color = textColor;
-                    
-                    badge.style.padding = '2px 6px';
-                    badge.style.borderRadius = '4px';
-                    badge.style.marginLeft = '6px';
-                    badge.style.fontSize = '10px';
-                    badge.style.fontWeight = '700';
-                    badge.style.display = 'inline-flex';
-                    badge.style.alignItems = 'center';
-                    badge.style.verticalAlign = 'middle';
-                    badge.style.textTransform = 'uppercase';
-                    badge.style.cursor = 'pointer';
-                    badge.style.userSelect = 'none';
+                    if (isCopied) return;
 
-                    const preventDiscordEvents = (e: Event) => {
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
-                    };
-
-                    badge.addEventListener('mousedown', preventDiscordEvents);
-                    badge.addEventListener('mouseup', preventDiscordEvents);
-                    badge.addEventListener('click', preventDiscordEvents);
-
-                    let isCopied = false;
-
-                    badge.addEventListener('dblclick', (e) => {
-                        e.stopPropagation();
-                        e.stopImmediatePropagation();
+                    navigator.clipboard.writeText(userId).then(() => {
+                        isCopied = true;
                         
-                        if (isCopied) return;
+                        let copyBgColor = settings.store.copiedColor || "transparent";
+                        let copyTextColor = '#FFFFFF';
+                        
+                        if (copyBgColor === "#FFFFFF" || copyBgColor === "#FEE75C") {
+                            copyTextColor = "#000000"; 
+                        } else if (copyBgColor === "transparent") {
+                            copyTextColor = "#FFFFFF"; 
+                        }
 
-                        navigator.clipboard.writeText(userId).then(() => {
-                            isCopied = true;
-                            
-                            // Fetch the custom copied color directly from settings
-                            let copyBgColor = settings.store.copiedColor || "transparent";
-                            let copyTextColor = '#FFFFFF';
-                            
-                            // Smart text color for the copied state
-                            if (copyBgColor === "#FFFFFF" || copyBgColor === "#FEE75C") {
-                                copyTextColor = "#000000"; 
-                            } else if (copyBgColor === "transparent") {
-                                copyTextColor = "#FFFFFF"; 
+                        badge.innerText = 'COPIED!';
+                        badge.style.backgroundColor = copyBgColor; 
+                        badge.style.color = copyTextColor; 
+                        
+                        setTimeout(() => {
+                            if (badge) {
+                                badge.innerText = `ID: ${userId}`;
+                                badge.style.backgroundColor = badge.getAttribute('data-original-bg') || bgColor;
+                                badge.style.color = badge.getAttribute('data-original-text') || textColor;
+                                isCopied = false;
                             }
-
-                            badge.innerText = 'COPIED!';
-                            badge.style.backgroundColor = copyBgColor; 
-                            badge.style.color = copyTextColor; 
-                            
-                            setTimeout(() => {
-                                if (badge) {
-                                    badge.innerText = `ID: ${userId}`;
-                                    badge.style.backgroundColor = badge.getAttribute('data-original-bg') || bgColor;
-                                    badge.style.color = badge.getAttribute('data-original-text') || textColor;
-                                    isCopied = false;
-                                }
-                            }, 1000);
-                        });
+                        }, 1000);
                     });
+                });
 
-                    if (usernameSpan.nextSibling) {
-                        header.insertBefore(badge, usernameSpan.nextSibling);
-                    } else {
-                        header.appendChild(badge);
-                    }
+                if (usernameSpan.nextSibling) {
+                    header.insertBefore(badge, usernameSpan.nextSibling);
+                } else {
+                    header.appendChild(badge);
                 }
             }
         });
