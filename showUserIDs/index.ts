@@ -15,6 +15,19 @@ const settings = definePluginSettings({
             { label: "Yellow", value: "#FEE75C" }
         ]
     },
+    copiedColor: {
+        type: OptionType.SELECT,
+        description: "Choose the background color when an ID is copied.",
+        options: [
+            { label: "Transparent (Default)", value: "transparent", default: true },
+            { label: "Black", value: "#000000" },
+            { label: "Discord Blue", value: "#5865F2" },
+            { label: "Green", value: "#23A559" },
+            { label: "Red", value: "#DA373C" },
+            { label: "White", value: "#FFFFFF" },
+            { label: "Yellow", value: "#FEE75C" }
+        ]
+    },
     ignoreBots: {
         type: OptionType.BOOLEAN,
         default: true, 
@@ -27,7 +40,7 @@ let updateTimeout: number | null = null;
 
 export default definePlugin({
     name: "ShowIDs",
-    description: "Displays User IDs next to chat usernames. Features a color drop-down, smart text contrast, and double-click to copy.",
+    description: "Displays User IDs next to chat usernames. Features color drop-downs, smart text contrast, and double-click to copy.",
     
     // REPLACE '0' WITH YOUR ACTUAL DISCORD USER ID (Keep the 'n' at the end!)
     authors: [{ name: "ryuzaki", id: 0n }], 
@@ -40,12 +53,12 @@ export default definePlugin({
         
         if (!bgColor) bgColor = "transparent"; 
 
-        // Smart Text Color Logic
+        // Smart Text Color Logic for the Resting Badge
         let textColor = '#FFFFFF';
         if (bgColor === "#FFFFFF" || bgColor === "#FEE75C") {
-            textColor = "#000000"; // Dark text for light backgrounds
+            textColor = "#000000"; 
         } else if (bgColor === "transparent") {
-            textColor = "#FFFFFF"; // Crisp white text for transparent backgrounds
+            textColor = "#FFFFFF"; 
         }
 
         document.querySelectorAll('.custom-id-badge').forEach(badge => {
@@ -120,9 +133,20 @@ export default definePlugin({
                         navigator.clipboard.writeText(userId).then(() => {
                             isCopied = true;
                             
+                            // Fetch the custom copied color directly from settings
+                            let copyBgColor = settings.store.copiedColor || "transparent";
+                            let copyTextColor = '#FFFFFF';
+                            
+                            // Smart text color for the copied state
+                            if (copyBgColor === "#FFFFFF" || copyBgColor === "#FEE75C") {
+                                copyTextColor = "#000000"; 
+                            } else if (copyBgColor === "transparent") {
+                                copyTextColor = "#FFFFFF"; 
+                            }
+
                             badge.innerText = 'COPIED!';
-                            badge.style.backgroundColor = '#23a559'; 
-                            badge.style.color = '#FFFFFF'; 
+                            badge.style.backgroundColor = copyBgColor; 
+                            badge.style.color = copyTextColor; 
                             
                             setTimeout(() => {
                                 if (badge) {
