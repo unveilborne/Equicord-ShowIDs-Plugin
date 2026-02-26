@@ -1,7 +1,7 @@
-# ShowIDs for Equicord & Vencord
+# ShowIDs for Equicord 
 *made by Ryuzaki*
 
-Yo, so I finally got fed up with Discord’s internal classes breaking every single time they push a tiny update, so I whipped up this "bulletproof" plugin. It basically just sticks User IDs right next to names in chat so you don't have to go profile hunting like a Fed lmao.
+Yo, so I finally got fed up with Discord’s internal classes breaking every single time they push a tiny update, so I whipped up this "bulletproof" Equicord plugin. It basically just sticks User IDs right next to names in chat so you don't have to go profile hunting like a Fed lmao.
 
 ### Why this one actually hits:
 * **Discord-Proof:** Discord loves scrambling their Webpack modules just to mess with us, but this plugin literally does not care. It uses pure DOM observation to snatch IDs straight from avatar URLs. If they have a PFP, it works. Big brain moves only. 
@@ -11,8 +11,8 @@ Yo, so I finally got fed up with Discord’s internal classes breaking every sin
 * **Clean Sidebar:** It only injects into the actual chat messages. Your member list stays original and clean. No clutter here.
 
 ### How to get it running:
-1. **Throw** the `showUserIDs` folder into your `src/userplugins/` directory (works for both Equicord and Vencord).
-2. Open your terminal in your main Equicord/Vencord folder.
+1. **Throw** the `showUserIDs` folder into your `src/userplugins/` directory.
+2. Open your terminal in your main Equicord folder.
 3. Run `pnpm build`
 4. Run `pnpm inject`
 5. Completely restart Discord!
